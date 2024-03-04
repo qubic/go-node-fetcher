@@ -110,7 +110,7 @@ func (rp *reliablePeers) getPeerCurrentTick(peer string) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	qc, err := qubic.NewConnection(ctx, peer, "21841")
+	qc, err := qubic.NewClient(ctx, peer, "21841")
 	if err != nil {
 		return 0, errors.Wrap(err, "creating qubic connection")
 	}
