@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/ardanlabs/conf"
+	"github.com/cockroachdb/pebble"
 	"github.com/pkg/errors"
 	"log"
 	"net/http"
@@ -31,6 +32,7 @@ func run() error {
 			StartingPeerIP  string        `conf:"default:92.50.108.113"`
 			MaxPeers        int           `conf:"default:50"`
 			ExchangeTimeout time.Duration `conf:"default:2s"`
+			StorageFolder   string        `conf:"default:store"`
 		}
 	}
 
@@ -59,8 +61,15 @@ func run() error {
 		return errors.Wrap(err, "generating config for output")
 	}
 	log.Printf("main: Config :\n%v\n", out)
+	db, err := pebble.Open(cfg.Qubic.StorageFolder, &pebble.Options{})
+	if err != nil {
+		log.Fatalf("err opening pebble: %s", err.Error())
+	}
 
-	rp := NewPeers(cfg.Qubic.StartingPeerIP, cfg.Qubic.MaxPeers, cfg.Qubic.ExchangeTimeout)
+	rp, err := NewPeers(cfg.Qubic.StartingPeerIP, cfg.Qubic.MaxPeers, cfg.Qubic.ExchangeTimeout, db)
+	if err != nil {
+		return errors.Wrap(err, "creating new peers")
+	}
 	err = rp.Compute()
 	if err != nil {
 		return errors.Wrap(err, "computing first batch of reliable peers")

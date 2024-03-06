@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/cockroachdb/pebble"
 	"github.com/pkg/errors"
 	qubic "github.com/qubic/go-node-connector"
 	"log"
@@ -14,25 +15,34 @@ type distinctPeers struct {
 	bp                        *blacklistedPeers
 	peers                     map[string]struct{}
 	maxPeers                  int
+	db                        *pebble.DB
 	mux                       sync.RWMutex
 	exchangeConnectionTimeout time.Duration
 }
 
-func newDistinctPeers(startingPeer string, maxPeers int, exchangeConnectionTimeout time.Duration, bp *blacklistedPeers) *distinctPeers {
+func newDistinctPeers(startingPeers []string, maxPeers int, exchangeConnectionTimeout time.Duration, bp *blacklistedPeers, db *pebble.DB) *distinctPeers {
 	dp := distinctPeers{
 		bp:                        bp,
 		peers:                     make(map[string]struct{}, maxPeers),
 		maxPeers:                  maxPeers,
+		db:                        db,
 		exchangeConnectionTimeout: exchangeConnectionTimeout,
 	}
-	dp.setPeers([]string{startingPeer})
+	dp.setPeers(startingPeers)
 
 	return &dp
 }
 
 func (p *distinctPeers) build() ([]string, error) {
-	peer := p.getRandomPeer()
-	err := p.exchangePeerList(peer)
+	peer, err := p.getRandomPeer()
+	if err != nil {
+		return nil, errors.Wrap(err, "getting random peer")
+	}
+	if len(peer) == 0 {
+		peer = p.get()[0]
+	}
+
+	err = p.exchangePeerList(peer)
 	if err != nil {
 		return nil, errors.Wrap(err, "exchanging peer list")
 	}
@@ -42,6 +52,11 @@ func (p *distinctPeers) build() ([]string, error) {
 			log.Println("No distinct peers found, no blacklisted peers found")
 		}
 		return p.bp.get(), nil
+	}
+
+	err = storePeers(p.db, p.get())
+	if err != nil {
+		return nil, errors.Wrap(err, "storing peers")
 	}
 
 	return p.get(), nil
@@ -117,15 +132,15 @@ func (p *distinctPeers) isEmpty() bool {
 	return len(p.peers) == 0
 }
 
-func (p *distinctPeers) getRandomPeer() string {
-	p.mux.RLock()
-	defer p.mux.RUnlock()
-
-	if p.isEmpty() {
-		return ""
+func (p *distinctPeers) getRandomPeer() (string, error) {
+	peers, err := retrievePeers(p.db)
+	if err != nil {
+		return "", errors.Wrap(err, "retrieving peers from store")
 	}
 
-	peers := p.get()
+	if len(peers) == 0 {
+		return "", nil
+	}
 
-	return peers[rand.Intn(len(p.peers))]
+	return peers[rand.Intn(len(p.peers))], nil
 }
