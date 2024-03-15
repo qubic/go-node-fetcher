@@ -7,12 +7,14 @@ import (
 	qubic "github.com/qubic/go-node-connector"
 	"log"
 	"math/rand"
+	"net"
 	"sync"
 	"time"
 )
 
 type distinctPeers struct {
 	bp                        *blacklistedPeers
+	whitelistedPeers          map[string]struct{}
 	peers                     map[string]struct{}
 	maxPeers                  int
 	db                        *pebble.DB
@@ -20,10 +22,11 @@ type distinctPeers struct {
 	exchangeConnectionTimeout time.Duration
 }
 
-func newDistinctPeers(startingPeers []string, maxPeers int, exchangeConnectionTimeout time.Duration, bp *blacklistedPeers, db *pebble.DB) *distinctPeers {
+func newDistinctPeers(startingPeers []string, whitelistedPeers []string, maxPeers int, exchangeConnectionTimeout time.Duration, bp *blacklistedPeers, db *pebble.DB) *distinctPeers {
 	dp := distinctPeers{
 		bp:                        bp,
 		peers:                     make(map[string]struct{}, maxPeers),
+		whitelistedPeers:          createWhitelistedPeersMap(whitelistedPeers),
 		maxPeers:                  maxPeers,
 		db:                        db,
 		exchangeConnectionTimeout: exchangeConnectionTimeout,
@@ -31,6 +34,34 @@ func newDistinctPeers(startingPeers []string, maxPeers int, exchangeConnectionTi
 	dp.setPeers(startingPeers)
 
 	return &dp
+}
+
+func createWhitelistedPeersMap(peers []string) map[string]struct{} {
+	peersMap := make(map[string]struct{})
+
+	if peers == nil || len(peers) == 0 {
+		return peersMap
+	}
+
+	for _, peer := range peers {
+		ip := net.ParseIP(peer)
+		if ip == nil {
+			continue
+		}
+		peersMap[peer] = struct{}{}
+	}
+
+	return peersMap
+}
+
+// isWhitelisted checks if a peer is whitelisted, if the whitelistedPeers list is empty, it returns true
+func (p *distinctPeers) isWhitelisted(peer string) bool {
+	if len(p.whitelistedPeers) == 0 {
+		return true
+	}
+
+	_, ok := p.whitelistedPeers[peer]
+	return ok
 }
 
 func (p *distinctPeers) build() ([]string, error) {
@@ -114,6 +145,10 @@ func (p *distinctPeers) setPeers(peers []string) {
 	defer p.mux.Unlock()
 
 	for _, peer := range peers {
+		if !p.isWhitelisted(peer) {
+			continue
+		}
+
 		p.peers[peer] = struct{}{}
 	}
 }

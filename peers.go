@@ -16,7 +16,7 @@ type PeersResponse struct {
 	UpdatedAt int64
 }
 
-func NewPeers(startingPeer string, maxPeers int, exchangeConnectionTimeout time.Duration, db *pebble.DB) (*Peers, error) {
+func NewPeers(startingPeer string, whitelistedPeers []string, maxPeers int, exchangeConnectionTimeout time.Duration, db *pebble.DB) (*Peers, error) {
 	storedPeers, err := retrievePeers(db)
 	if err != nil {
 		return nil, errors.Wrap(err, "retrieving peers from store")
@@ -25,7 +25,7 @@ func NewPeers(startingPeer string, maxPeers int, exchangeConnectionTimeout time.
 	initialPeers := append(storedPeers, startingPeer)
 	bp := newBlacklistedPeers()
 	p := Peers{
-		dp: newDistinctPeers(initialPeers, maxPeers, exchangeConnectionTimeout, bp, db),
+		dp: newDistinctPeers(initialPeers, whitelistedPeers, maxPeers, exchangeConnectionTimeout, bp, db),
 		rp: newReliablePeers(bp),
 	}
 
