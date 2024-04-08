@@ -7,8 +7,9 @@ import (
 )
 
 type Peers struct {
-	dp *distinctPeers
-	rp *reliablePeers
+	dp            *distinctPeers
+	rp            *reliablePeers
+	fixedPeerList bool
 }
 
 type PeersResponse struct {
@@ -16,24 +17,29 @@ type PeersResponse struct {
 	UpdatedAt int64
 }
 
-func NewPeers(startingPeer string, whitelistedPeers []string, maxPeers int, exchangeConnectionTimeout time.Duration, db *pebble.DB) (*Peers, error) {
-	storedPeers, err := retrievePeers(db)
-	if err != nil {
-		return nil, errors.Wrap(err, "retrieving peers from store")
+func NewPeers(fixedPeerList bool, startingPeers []string, whitelistedPeers []string, maxPeers int, exchangeConnectionTimeout time.Duration, db *pebble.DB) (*Peers, error) {
+
+	if !fixedPeerList {
+		storedPeers, err := retrievePeers(db)
+		if err != nil {
+			return nil, errors.Wrap(err, "retrieving peers from store")
+		}
+
+		startingPeers = append(startingPeers, storedPeers...)
 	}
 
-	initialPeers := append(storedPeers, startingPeer)
 	bp := newBlacklistedPeers()
 	p := Peers{
-		dp: newDistinctPeers(initialPeers, whitelistedPeers, maxPeers, exchangeConnectionTimeout, bp, db),
-		rp: newReliablePeers(bp),
+		dp:            newDistinctPeers(startingPeers, whitelistedPeers, maxPeers, exchangeConnectionTimeout, bp, db),
+		rp:            newReliablePeers(bp),
+		fixedPeerList: fixedPeerList,
 	}
 
 	return &p, nil
 }
 
 func (p *Peers) Compute() error {
-	peers, err := p.dp.build()
+	peers, err := p.dp.build(p.fixedPeerList)
 	if err != nil {
 		return errors.Wrapf(err, "building distinct peers")
 	}

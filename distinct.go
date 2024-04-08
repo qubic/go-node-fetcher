@@ -16,6 +16,7 @@ type distinctPeers struct {
 	bp                        *blacklistedPeers
 	whitelistedPeers          map[string]struct{}
 	peers                     map[string]struct{}
+	startingPeers             []string
 	maxPeers                  int
 	db                        *pebble.DB
 	mux                       sync.RWMutex
@@ -27,6 +28,7 @@ func newDistinctPeers(startingPeers []string, whitelistedPeers []string, maxPeer
 		bp:                        bp,
 		peers:                     make(map[string]struct{}, maxPeers),
 		whitelistedPeers:          createWhitelistedPeersMap(whitelistedPeers),
+		startingPeers:             startingPeers,
 		maxPeers:                  maxPeers,
 		db:                        db,
 		exchangeConnectionTimeout: exchangeConnectionTimeout,
@@ -64,7 +66,11 @@ func (p *distinctPeers) isWhitelisted(peer string) bool {
 	return ok
 }
 
-func (p *distinctPeers) build() ([]string, error) {
+func (p *distinctPeers) build(fixedPeerList bool) ([]string, error) {
+	if fixedPeerList {
+		return p.startingPeers, nil
+	}
+
 	peer, err := p.getRandomPeer()
 	if err != nil {
 		return nil, errors.Wrap(err, "getting random peer")
