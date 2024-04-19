@@ -28,12 +28,13 @@ func run() error {
 			ShutdownTimeout time.Duration `conf:"default:5s"`
 		}
 		Qubic struct {
-			FixedPeerList   bool     `conf:"default:false"`
-			StartingPeersIP []string `conf:"default:185.70.186.149;185.70.186.153"`
-			WhitelistPeers  []string
-			MaxPeers        int           `conf:"default:50"`
-			ExchangeTimeout time.Duration `conf:"default:2s"`
-			StorageFolder   string        `conf:"default:store"`
+			TickErrorThreshold int      `conf:"default:50"`
+			FixedPeerList      bool     `conf:"default:false"`
+			StartingPeersIP    []string `conf:"default:185.70.186.149;185.70.186.153"`
+			WhitelistPeers     []string
+			MaxPeers           int           `conf:"default:50"`
+			ExchangeTimeout    time.Duration `conf:"default:2s"`
+			StorageFolder      string        `conf:"default:store"`
 		}
 	}
 
@@ -67,7 +68,14 @@ func run() error {
 		log.Fatalf("err opening pebble: %s", err.Error())
 	}
 
-	rp, err := NewPeers(cfg.Qubic.FixedPeerList, cfg.Qubic.StartingPeersIP, cfg.Qubic.WhitelistPeers, cfg.Qubic.MaxPeers, cfg.Qubic.ExchangeTimeout, db)
+	rp, err := NewPeers(
+		cfg.Qubic.FixedPeerList,
+		cfg.Qubic.StartingPeersIP,
+		cfg.Qubic.WhitelistPeers,
+		cfg.Qubic.MaxPeers,
+		cfg.Qubic.ExchangeTimeout,
+		cfg.Qubic.TickErrorThreshold,
+		db)
 	if err != nil {
 		return errors.Wrap(err, "creating new peers")
 	}

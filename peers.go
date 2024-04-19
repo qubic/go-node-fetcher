@@ -18,7 +18,7 @@ type PeersResponse struct {
 	MaxTick   int
 }
 
-func NewPeers(fixedPeerList bool, startingPeers []string, whitelistedPeers []string, maxPeers int, exchangeConnectionTimeout time.Duration, db *pebble.DB) (*Peers, error) {
+func NewPeers(fixedPeerList bool, startingPeers []string, whitelistedPeers []string, maxPeers int, exchangeConnectionTimeout time.Duration, tickErrorThreshold int, db *pebble.DB) (*Peers, error) {
 
 	if !fixedPeerList {
 		storedPeers, err := retrievePeers(db)
@@ -32,7 +32,7 @@ func NewPeers(fixedPeerList bool, startingPeers []string, whitelistedPeers []str
 	bp := newBlacklistedPeers()
 	p := Peers{
 		dp:            newDistinctPeers(startingPeers, whitelistedPeers, maxPeers, exchangeConnectionTimeout, bp, db),
-		rp:            newReliablePeers(bp),
+		rp:            newReliablePeers(bp, tickErrorThreshold),
 		fixedPeerList: fixedPeerList,
 	}
 

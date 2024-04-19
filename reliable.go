@@ -14,16 +14,18 @@ const qubicPort = "21841"
 const cutDownInterval = 30
 
 type reliablePeers struct {
-	bp        *blacklistedPeers
-	peers     []string
-	updatedAt time.Time
-	mu        sync.RWMutex
-	maxTick   int
+	bp                 *blacklistedPeers
+	peers              []string
+	updatedAt          time.Time
+	mu                 sync.RWMutex
+	maxTick            int
+	tickErrorThreshold int
 }
 
-func newReliablePeers(bp *blacklistedPeers) *reliablePeers {
+func newReliablePeers(bp *blacklistedPeers, tickErrorThreshold int) *reliablePeers {
 	return &reliablePeers{
-		bp: bp,
+		bp:                 bp,
+		tickErrorThreshold: tickErrorThreshold,
 	}
 }
 
@@ -80,6 +82,7 @@ func (rp *reliablePeers) getPeersCurrentTick(peers []string) ([]string, int) {
 	filteredPeers := make([]string, 0, len(peers))
 	peersTicks := make(map[string]int)
 	maxTick := 0
+	maxTick2 := 0
 	emptyTickPeers := 0
 	for _, p := range peers {
 		tick, err := rp.getPeerCurrentTick(p)
@@ -91,6 +94,7 @@ func (rp *reliablePeers) getPeersCurrentTick(peers []string) ([]string, int) {
 			emptyTickPeers++
 		}
 		if tick > maxTick {
+			maxTick2 = maxTick
 			maxTick = tick
 		}
 		peersTicks[p] = tick
@@ -105,6 +109,11 @@ func (rp *reliablePeers) getPeersCurrentTick(peers []string) ([]string, int) {
 	}
 
 	fmt.Println("Empty tick peers: ", emptyTickPeers)
+
+	if (maxTick - maxTick2) >= rp.tickErrorThreshold {
+		fmt.Printf("Max tick (%d) exceeds tick error threshold (%d). Returning second max tick(%d).\n", maxTick, rp.tickErrorThreshold, maxTick2)
+		maxTick = maxTick2
+	}
 
 	return filteredPeers, maxTick
 }
