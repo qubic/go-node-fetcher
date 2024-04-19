@@ -33,3 +33,23 @@ func (h *Handler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	w.Write(b)
 }
+
+type tickResponse struct {
+	ChainTick int `json:"chain_tick"`
+}
+
+func (h *Handler) HandleTick(w http.ResponseWriter, r *http.Request) {
+	p := h.rp.Get()
+	res := tickResponse{
+		ChainTick: p.MaxTick,
+	}
+
+	b, err := json.Marshal(res)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	w.Write(b)
+}

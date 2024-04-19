@@ -93,6 +93,7 @@ func run() error {
 
 	fmt.Println("Server started")
 	http.HandleFunc("/peers", h.Handle)
+	http.HandleFunc("/chain-tick", h.HandleTick)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
