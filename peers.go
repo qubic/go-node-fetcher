@@ -15,6 +15,7 @@ type Peers struct {
 type PeersResponse struct {
 	Peers     []string
 	UpdatedAt int64
+	MaxTick   int
 }
 
 func NewPeers(fixedPeerList bool, startingPeers []string, whitelistedPeers []string, maxPeers int, exchangeConnectionTimeout time.Duration, db *pebble.DB) (*Peers, error) {

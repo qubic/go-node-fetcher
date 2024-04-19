@@ -18,6 +18,7 @@ type reliablePeers struct {
 	peers     []string
 	updatedAt time.Time
 	mu        sync.RWMutex
+	maxTick   int
 }
 
 func newReliablePeers(bp *blacklistedPeers) *reliablePeers {
@@ -40,25 +41,27 @@ func (rp *reliablePeers) getResponse() PeersResponse {
 	return PeersResponse{
 		Peers:     rp.peers,
 		UpdatedAt: rp.updatedAt.UTC().Unix(),
+		MaxTick:   rp.maxTick,
 	}
 }
 
-func (rp *reliablePeers) set(peers []string) {
+func (rp *reliablePeers) set(peers []string, maxTick int) {
 	rp.mu.Lock()
 	defer rp.mu.Unlock()
 
 	rp.updatedAt = time.Now()
 	rp.peers = peers
+	rp.maxTick = maxTick
 }
 
 func (rp *reliablePeers) build(peers []string) error {
-	filteredPeers := rp.getPeersCurrentTick(peers)
+	filteredPeers, maxTick := rp.getPeersCurrentTick(peers)
 	if len(filteredPeers) == 0 {
 		return errors.New("no reliable peers found")
 	}
 
 	fmt.Printf("found %d reliable peers\n", len(filteredPeers))
-	rp.set(filteredPeers)
+	rp.set(filteredPeers, maxTick)
 
 	return nil
 }
@@ -73,7 +76,7 @@ func (rp *reliablePeers) getOneRandom() string {
 	return peers[rand.Intn(len(peers))]
 }
 
-func (rp *reliablePeers) getPeersCurrentTick(peers []string) []string {
+func (rp *reliablePeers) getPeersCurrentTick(peers []string) ([]string, int) {
 	filteredPeers := make([]string, 0, len(peers))
 	peersTicks := make(map[string]int)
 	maxTick := 0
@@ -103,7 +106,7 @@ func (rp *reliablePeers) getPeersCurrentTick(peers []string) []string {
 
 	fmt.Println("Empty tick peers: ", emptyTickPeers)
 
-	return filteredPeers
+	return filteredPeers, maxTick
 }
 
 func (rp *reliablePeers) getPeerCurrentTick(peer string) (int, error) {
